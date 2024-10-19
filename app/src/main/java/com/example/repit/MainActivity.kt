@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.Flow
 
 import com.example.repit.ui.theme.REPITTheme
 import kotlinx.coroutines.flow.flowOf
+import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private lateinit var exercisePreferences: ExercisePreferences
@@ -118,12 +119,25 @@ fun NavigationHost(
 
 // Mock ExercisePreferences for Preview
 class MockExercisePreferences : ExercisePreferences(null) {
-    override fun getGoal(exercise: String): Flow<Int> {
-        return flowOf(25) // Return a default goal value for preview
+
+    private val mockData = mutableMapOf<String, Int>()  // Store mock goals using exercise and date as the key
+
+    // Generate a mock key for an exercise and a date (using LocalDate)
+    private fun getMockKey(exercise: String, date: LocalDate): String {
+        return "${exercise}_${date.toString()}"  // Use date in ISO-8601 format
     }
 
-    override suspend fun setGoal(exercise: String, goal: Int) {
-        // No-op for preview
+    // Mock the retrieval of goals based on exercise and date
+    override fun getGoalForDate(exercise: String, date: LocalDate): Flow<Int> {
+        val key = getMockKey(exercise, date)
+        val goal = mockData[key] ?: 25  // Default to 25 if no goal is set
+        return flowOf(goal)  // Return a Flow with the goal
+    }
+
+    // Mock the setting of goals for a specific exercise and date
+    override suspend fun setGoalForDate(exercise: String, goal: Int, date: LocalDate) {
+        val key = getMockKey(exercise, date)
+        mockData[key] = goal  // Store the goal in the mock data map
     }
 }
 

@@ -5,6 +5,9 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,14 +36,16 @@ fun TodayPage(
     val exercises = listOf("Push ups", "Sit ups", "Squats", "Pull ups")
     var dailyGoal by remember { mutableIntStateOf(25) }
     var dailyGoalText by remember { mutableStateOf(dailyGoal.toString()) }
-    val currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy"))
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }  // New date state
+    val dateFormatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy")
+    val formattedDate = selectedDate.format(dateFormatter)
 
     // Coroutine scope to handle the asynchronous DataStore operations
     val scope = rememberCoroutineScope()
 
-    // Fetch the stored daily goal when the exercise changes
-    LaunchedEffect(selectedExercise) {
-        exercisePreferences.getGoal(selectedExercise).collect { goal ->
+    // Fetch the stored daily goal when the exercise or date changes
+    LaunchedEffect(selectedExercise, selectedDate) {
+        exercisePreferences.getGoalForDate(selectedExercise, selectedDate).collect { goal ->
             dailyGoal = goal
             dailyGoalText = goal.toString()
         }
@@ -53,8 +58,16 @@ fun TodayPage(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Display Today's Date
-        Text(text = currentDate, style = MaterialTheme.typography.titleLarge)
+        // Date Navigation with arrows
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { selectedDate = selectedDate.minusDays(1) }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous Day")
+            }
+            Text(text = formattedDate, style = MaterialTheme.typography.titleLarge)
+            IconButton(onClick = { selectedDate = selectedDate.plusDays(1) }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next Day")
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -98,7 +111,7 @@ fun TodayPage(
                 if (newGoal != null) {
                     dailyGoal = newGoal
                     scope.launch {
-                        exercisePreferences.setGoal(selectedExercise, newGoal)
+                        exercisePreferences.setGoalForDate(selectedExercise, newGoal, selectedDate)
                     }
                 }
             },
@@ -122,3 +135,4 @@ fun TodayPagePreview() {
         exercisePreferences = mockExercisePreferences
     )
 }
+
