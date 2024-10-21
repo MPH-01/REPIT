@@ -1,0 +1,21 @@
+# Build-related files and folders
+/build/
+
+# Gradle cache, wrapper files, binaries, and execution files
+.gradle/
+*.bin
+*.lock
+*.probe
+
+# Compiled Java and Kotlin classes (keep *.kt files for your source code)
+*.class
+
+# IDE generated files (IntelliJ/Android Studio)
+.idea/
+*.iml
+.idea/*.xml
+.idea/caches/
+.idea/libraries/
+
+# macOS system files
+**/.DS_Store
