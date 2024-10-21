@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 import androidx.compose.material3.CircularProgressIndicator
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TodayPage(
@@ -92,16 +93,21 @@ fun TodayPage(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Dropdown Menu (Exercise Selector)
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = if (selectedExercise.isEmpty()) "Select Exercise" else selectedExercise,
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            OutlinedTextField(
+                value = selectedExercise,
+                onValueChange = { /* No need to change value here as selection is done via the dropdown */ },
+                readOnly = true,
+                label = { Text("Select Exercise") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
                 modifier = Modifier
+                    .menuAnchor()
                     .fillMaxWidth()
-                    .clickable { expanded = true }
-                    .padding(16.dp)
-                    .background(MaterialTheme.colorScheme.surface),
-                style = MaterialTheme.typography.bodyLarge
             )
 
             DropdownMenu(
@@ -138,29 +144,40 @@ fun TodayPage(
             },
             label = { Text("Set Daily Goal") },
             modifier = Modifier.fillMaxWidth(),
-            isError = dailyGoalText.toIntOrNull() == null && dailyGoalText.isNotEmpty()  // Show error if input is invalid
+            isError = dailyGoalText.toIntOrNull() == null && dailyGoalText.isNotEmpty()
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
-        // Circular Progress Bar
-        CircularProgressIndicator(
-            progress = { currentReps / dailyGoal.toFloat() },
-            modifier = Modifier.size(200.dp),
-            strokeWidth = 12.dp,
-            color = if (currentReps >= dailyGoal) Color.Green else MaterialTheme.colorScheme.primary
-        )
+        Box(
+            modifier = Modifier.size(300.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // Red background circle (the "empty" part of the progress)
+            CircularProgressIndicator(
+                progress = { 1f },
+                modifier = Modifier.fillMaxSize(),
+                strokeWidth = 36.dp,
+                color = Color.Red
+            )
 
-        // Display the current count in the center of the circular progress bar
-        Text(
-            text = "$currentReps",
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.Black,
-            modifier = Modifier.offset(y = (-110).dp),
-            textAlign = TextAlign.Center
-        )
+            // Foreground progress circle
+            CircularProgressIndicator(
+                progress = { currentReps / dailyGoal.toFloat() },
+                modifier = Modifier.fillMaxSize(),
+                strokeWidth = 36.dp,
+                color = if (currentReps >= dailyGoal) Color.Green else MaterialTheme.colorScheme.primary
+            )
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "$currentReps",
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
 
         // Buttons for increments
         Row(
@@ -205,6 +222,8 @@ fun TodayPage(
         }) {
             Text("Reset")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
