@@ -118,7 +118,9 @@ fun NavigationHost(
                 exercisePreferences = exercisePreferences
             )
         }
-        composable(Screen.Calendar.route) { CalendarPage() }
+        composable(Screen.Calendar.route) {
+            CalendarPage(exercisePreferences = exercisePreferences)
+        }
         composable(Screen.Stats.route) { StatsPage() }
         composable(Screen.Settings.route) { SettingsPage() }
     }

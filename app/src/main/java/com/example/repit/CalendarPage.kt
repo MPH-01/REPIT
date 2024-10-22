@@ -24,7 +24,9 @@ import java.time.format.DateTimeFormatter
 
 @SuppressLint("NewApi")
 @Composable
-fun CalendarPage() {
+fun CalendarPage(
+    exercisePreferences: ExercisePreferences
+) {
     // Get the current date
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     val scope = rememberCoroutineScope()
@@ -57,8 +59,8 @@ fun CalendarPage() {
 
     // Show the popup when a day is selected
     selectedDate?.let { day ->
-        DayPopup(day = day) {
-            selectedDate = null
+        selectedDate?.let { day ->
+            DayPopup(day = day, onDismiss = { selectedDate = null }, exercisePreferences = exercisePreferences)
         }
     }
 }
@@ -168,7 +170,36 @@ fun DayItem(day: LocalDate, isSelected: Boolean, onClick: () -> Unit) {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DayPopup(day: LocalDate, onDismiss: () -> Unit) {
+fun DayPopup(
+    day: LocalDate,
+    onDismiss: () -> Unit,
+    exercisePreferences: ExercisePreferences
+) {
+    val exercises = listOf("Push ups", "Sit ups", "Squats", "Pull ups")
+    val scope = rememberCoroutineScope()
+
+    // Store the progress data for each exercise
+    val progressData = remember { mutableStateMapOf<String, Pair<Int, Int>>() } // Pair of current reps and goal reps
+
+    // Fetch data for each exercise when the popup is displayed
+    LaunchedEffect(day) {
+        exercises.forEach { exercise ->
+            scope.launch {
+                // Fetch goal reps and current reps for each exercise
+                val goalFlow = exercisePreferences.getGoalForDate(exercise, day)
+                val repsFlow = exercisePreferences.getRepsForDate(exercise, day)
+
+                goalFlow.collect { goal ->
+                    repsFlow.collect { reps ->
+                        if (reps > 0) { // Only interested in exercises with non-zero reps
+                            progressData[exercise] = reps to goal
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -177,10 +208,28 @@ fun DayPopup(day: LocalDate, onDismiss: () -> Unit) {
             }
         },
         title = {
-            Text(text = "Selected Date: ${day.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy"))}")
+            Text(text = "${day.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy"))}")
         },
         text = {
-            Text("This is a placeholder popup for the selected day.")
+            // Display progress bars for each exercise that has non-zero reps
+            Column {
+                if (progressData.isEmpty()) {
+                    Text("No exercises recorded for this day.")
+                } else {
+                    progressData.forEach { (exercise, data) ->
+                        val (currentReps, goalReps) = data
+                        Text("$exercise: $currentReps / $goalReps")
+
+                        // Display a progress bar for the exercise
+                        LinearProgressIndicator(
+                            progress = { currentReps / goalReps.toFloat() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        )
+                    }
+                }
+            }
         }
     )
 }
@@ -188,5 +237,8 @@ fun DayPopup(day: LocalDate, onDismiss: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun CalendarPagePreview() {
-    CalendarPage()
+    // Using MockExercisePreferences for preview purposes
+    val mockExercisePreferences = MockExercisePreferences()
+
+    CalendarPage(exercisePreferences = mockExercisePreferences)
 }
