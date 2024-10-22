@@ -6,7 +6,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Icon
@@ -86,8 +89,12 @@ fun BottomNavigationBar(navController: NavHostController) {
                     navController.navigate(screen.route)
                 },
                 icon = {
-                    // Placeholder icon (you can replace with actual icons)
-                    Icon(Icons.Default.Home, contentDescription = null)
+                    when (screen.route) {
+                        Screen.Today.route -> Icon(Icons.Default.Check, contentDescription = "Today")
+                        Screen.Calendar.route -> Icon(Icons.Default.DateRange, contentDescription = "Calendar")
+                        Screen.Stats.route -> Icon(Icons.Default.Info, contentDescription = "Stats")
+                        Screen.Settings.route -> Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
                 }
             )
         }
