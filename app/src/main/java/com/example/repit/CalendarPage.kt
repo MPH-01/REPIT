@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.repit.data.ExerciseRepository
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -25,7 +26,7 @@ import java.time.format.DateTimeFormatter
 @SuppressLint("NewApi")
 @Composable
 fun CalendarPage(
-    exercisePreferences: ExercisePreferences
+    exerciseRepository: ExerciseRepository
 ) {
     // Get the current date
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
@@ -60,7 +61,7 @@ fun CalendarPage(
     // Show the popup when a day is selected
     selectedDate?.let { day ->
         selectedDate?.let { day ->
-            DayPopup(day = day, onDismiss = { selectedDate = null }, exercisePreferences = exercisePreferences)
+            DayPopup(day = day, onDismiss = { selectedDate = null }, exerciseRepository = exerciseRepository)
         }
     }
 }
@@ -173,7 +174,7 @@ fun DayItem(day: LocalDate, isSelected: Boolean, onClick: () -> Unit) {
 fun DayPopup(
     day: LocalDate,
     onDismiss: () -> Unit,
-    exercisePreferences: ExercisePreferences
+    exerciseRepository: ExerciseRepository
 ) {
     val exercises = listOf("Push ups", "Sit ups", "Squats", "Pull ups")
     val scope = rememberCoroutineScope()
@@ -186,8 +187,8 @@ fun DayPopup(
         exercises.forEach { exercise ->
             scope.launch {
                 // Fetch goal reps and current reps for each exercise
-                val goalFlow = exercisePreferences.getGoalForDate(exercise, day)
-                val repsFlow = exercisePreferences.getRepsForDate(exercise, day)
+                val goalFlow = exerciseRepository.getGoalForDate(exercise, day)
+                val repsFlow = exerciseRepository.getRepsForDate(exercise, day)
 
                 goalFlow.collect { goal ->
                     repsFlow.collect { reps ->
@@ -232,13 +233,4 @@ fun DayPopup(
             }
         }
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun CalendarPagePreview() {
-    // Using MockExercisePreferences for preview purposes
-    val mockExercisePreferences = MockExercisePreferences()
-
-    CalendarPage(exercisePreferences = mockExercisePreferences)
 }

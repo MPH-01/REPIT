@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 import androidx.compose.material3.CircularProgressIndicator
+import com.example.repit.data.ExerciseRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -33,7 +34,7 @@ import androidx.compose.material3.CircularProgressIndicator
 fun TodayPage(
     selectedExercise: String,
     onExerciseSelected: (String) -> Unit,
-    exercisePreferences: ExercisePreferences
+    exerciseRepository: ExerciseRepository
 ) {
     var expanded by remember { mutableStateOf(false) }
     val exercises = listOf("Push ups", "Sit ups", "Squats", "Pull ups")
@@ -53,7 +54,7 @@ fun TodayPage(
 
         // Launch goal collection in a separate coroutine
         launch {
-            exercisePreferences.getGoalForDate(selectedExercise, selectedDate).collect { goal ->
+            exerciseRepository.getGoalForDate(selectedExercise, selectedDate).collect { goal ->
                 dailyGoal = goal
                 dailyGoalText = goal.toString()
                 Log.d("DataStore", "Stored goal for $selectedExercise on $selectedDate: $goal")
@@ -62,7 +63,7 @@ fun TodayPage(
 
         // Launch reps collection in a separate coroutine
         launch {
-            exercisePreferences.getRepsForDate(selectedExercise, selectedDate).collect { reps ->
+            exerciseRepository.getRepsForDate(selectedExercise, selectedDate).collect { reps ->
                 currentReps = reps
                 Log.d("DataStore", "Stored reps for $selectedExercise on $selectedDate: $reps")
             }
@@ -136,7 +137,7 @@ fun TodayPage(
                 if (newGoal != null) {
                     dailyGoal = newGoal
                     scope.launch {
-                        exercisePreferences.setGoalForDate(selectedExercise, newGoal, selectedDate)
+                        exerciseRepository.setGoalForDate(selectedExercise, newGoal, selectedDate)
                     }
                 }
             },
@@ -185,26 +186,26 @@ fun TodayPage(
             IncrementButton("+1", 1, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
-                    exercisePreferences.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
                 }
             }
             IncrementButton("+5", 5, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
                     Log.d("DataStore", "Running scope.launch")
-                    exercisePreferences.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
                 }
             }
             IncrementButton("+10", 10, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
-                    exercisePreferences.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
                 }
             }
             IncrementButton("+50", 50, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
-                    exercisePreferences.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
                 }
             }
         }
@@ -215,7 +216,7 @@ fun TodayPage(
         Button(onClick = {
             currentReps = 0
             scope.launch {
-                exercisePreferences.setRepsForDate(selectedExercise, 0, selectedDate)
+                exerciseRepository.setRepsForDate(selectedExercise, 0, selectedDate)
             }
         }) {
             Text("Reset")
@@ -235,18 +236,4 @@ fun IncrementButton(label: String, increment: Int, currentReps: Int, onIncrement
     ) {
         Text(label)
     }
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Preview(showBackground = true)
-@Composable
-fun TodayPagePreview() {
-    // Using MockExercisePreferences for preview purposes
-    val mockExercisePreferences = MockExercisePreferences()
-
-    TodayPage(
-        selectedExercise = "Push ups",
-        onExerciseSelected = {},
-        exercisePreferences = mockExercisePreferences
-    )
 }
