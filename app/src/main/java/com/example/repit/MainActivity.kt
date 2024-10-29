@@ -129,6 +129,8 @@ fun NavigationHost(
         composable(Screen.Stats.route) {
             StatsPage(exerciseRepository = exerciseRepository)
         }
-        composable(Screen.Settings.route) { SettingsPage() }
+        composable(Screen.Settings.route) {
+            SettingsPage(exerciseRepository = exerciseRepository)
+        }
     }
 }
