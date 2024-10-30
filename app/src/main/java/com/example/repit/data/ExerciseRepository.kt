@@ -144,4 +144,9 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     suspend fun getRestDaySettings(): Map<DayOfWeek, Boolean> {
         return dao.getAllRestDaySettings().associate { it.dayOfWeek to it.isRestDay }
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun getPastRestDays(): List<LocalDate> {
+        return dao.getDistinctPastRestDays()
+    }
 }

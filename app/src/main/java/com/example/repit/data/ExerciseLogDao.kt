@@ -55,4 +55,7 @@ interface ExerciseLogDao {
 
     @Query("SELECT MIN(date) FROM exercise_logs WHERE exercise = :exercise")
     suspend fun getFirstExerciseDate(exercise: String): LocalDate?
+
+    @Query("SELECT DISTINCT date FROM exercise_logs WHERE isRestDay = 1")
+    suspend fun getDistinctPastRestDays(): List<LocalDate>
 }
