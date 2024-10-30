@@ -44,20 +44,28 @@ fun TodayPage(
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     val dateFormatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy")
     val formattedDate = selectedDate.format(dateFormatter)
+    var isRestDay by remember { mutableStateOf(false) }
 
     // Coroutine scope to handle the asynchronous DataStore operations
     val scope = rememberCoroutineScope()
 
+    // Fetch the rest day settings and check if the selected date is a rest day
+    LaunchedEffect(selectedDate) {
+        isRestDay = false // Reset the rest day status for each date change
+
+        scope.launch {
+            isRestDay = exerciseRepository.isRestDay(selectedDate)
+            Log.d("TodayPage", "Is rest day: $isRestDay for $selectedDate")
+        }
+    }
+
     // Fetch the stored daily goal when the exercise or date changes
     LaunchedEffect(selectedExercise, selectedDate) {
-        Log.d("DataStore", "Executing LaunchedEffect with $selectedExercise and $selectedDate")
-
         // Launch goal collection in a separate coroutine
         launch {
             exerciseRepository.getGoalForDate(selectedExercise, selectedDate).collect { goal ->
                 dailyGoal = goal
                 dailyGoalText = goal.toString()
-                Log.d("DataStore", "Stored goal for $selectedExercise on $selectedDate: $goal")
             }
         }
 
@@ -84,7 +92,20 @@ fun TodayPage(
             IconButton(onClick = { selectedDate = selectedDate.minusDays(1) }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous Day")
             }
-            Text(text = formattedDate, style = MaterialTheme.typography.titleLarge)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = formattedDate, style = MaterialTheme.typography.titleLarge)
+
+                // Display "Rest Day" if the selected date is a rest day
+                if (isRestDay) {
+                    Text(
+                        text = "Rest Day",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
             IconButton(onClick = { selectedDate = selectedDate.plusDays(1) }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next Day")
             }

@@ -8,11 +8,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import com.example.repit.data.ExerciseRepository
 import kotlinx.coroutines.launch
@@ -38,7 +36,12 @@ fun StatsPage(exerciseRepository: ExerciseRepository) {
     val scope = rememberCoroutineScope()
     LaunchedEffect(selectedExercise, selectedPeriod) {
         scope.launch {
-            val dateRange = getDateRange(selectedPeriod)
+            val dateRange = if (selectedPeriod == "All time") {
+                val firstExerciseDate = exerciseRepository.getFirstExerciseDate(selectedExercise) ?: LocalDate.now()
+                firstExerciseDate to LocalDate.now()
+            } else {
+                getDateRange(selectedPeriod)
+            }
             calculateStats(exerciseRepository, selectedExercise, dateRange) { total, average ->
                 totalReps = total
                 averageReps = average
@@ -201,11 +204,16 @@ suspend fun calculateStats(
     onResult: (total: Int, average: Float) -> Unit
 ) {
     val (startDate, endDate) = dateRange
-    val totalReps = exerciseRepository.getTotalRepsForPeriod(exercise, startDate, endDate)
-    val daysWithReps = exerciseRepository.getDaysWithReps(exercise, startDate, endDate)
+    val totalReps = exerciseRepository.getNonRestRepsForPeriod(exercise, startDate, endDate)
+    val daysWithReps = exerciseRepository.getNumberOfNonRestDays(exercise, startDate, endDate)
 
-    // Calculate the average reps per day where reps > 0
-    val averageReps = if (daysWithReps > 0) totalReps.toFloat() / daysWithReps else 0f
+    // Calculate total days in range and subtract rest days
+    val totalDays = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1
+    val restDays = exerciseRepository.getRestDaysCount(exercise, startDate, endDate)
+    val effectiveDays = totalDays - restDays
+
+    // Calculate average reps per day, considering only non-rest days
+    val averageReps = if (effectiveDays > 0) totalReps.toFloat() / effectiveDays else 0f
 
     onResult(totalReps, averageReps)
 }

@@ -10,5 +10,6 @@ data class ExerciseLogEntity(
     val exercise: String,
     val date: LocalDate,
     val reps: Int,
-    val goal: Int
+    val goal: Int,
+    val isRestDay: Boolean = false
 )

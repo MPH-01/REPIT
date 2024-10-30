@@ -4,21 +4,23 @@ import android.annotation.SuppressLint
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.repit.data.ExerciseRepository
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -31,6 +33,19 @@ fun CalendarPage(
     // Get the current date
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     val scope = rememberCoroutineScope()
+
+    // States to store past and current rest day information
+    val pastRestDays = remember { mutableStateListOf<LocalDate>() }
+    val currentRestDaysOfWeek = remember { mutableStateMapOf<DayOfWeek, Boolean>() }
+
+    // Fetch past rest days and current rest day settings
+    LaunchedEffect(Unit) {
+        pastRestDays.clear()
+        pastRestDays.addAll(exerciseRepository.getPastRestDays())
+
+        currentRestDaysOfWeek.clear()
+        currentRestDaysOfWeek.putAll(exerciseRepository.getRestDaySettings())
+    }
 
     // Initialise LazyListState to start from the current month (index 50)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = 50)
@@ -53,16 +68,20 @@ fun CalendarPage(
                     scope.launch {
                         selectedDate = day
                     }
-                }
+                },
+                pastRestDays = pastRestDays,
+                currentRestDaysOfWeek = currentRestDaysOfWeek
             )
         }
     }
 
     // Show the popup when a day is selected
     selectedDate?.let { day ->
-        selectedDate?.let { day ->
-            DayPopup(day = day, onDismiss = { selectedDate = null }, exerciseRepository = exerciseRepository)
-        }
+        val isRestDay = day in pastRestDays
+                || (day.isAfter(LocalDate.now()) && currentRestDaysOfWeek[day.dayOfWeek] == true)
+                || (day == LocalDate.now() && currentRestDaysOfWeek[day.dayOfWeek] == true)
+
+        DayPopup(day = day, onDismiss = { selectedDate = null }, isRestDay = isRestDay, exerciseRepository = exerciseRepository)
     }
 }
 
@@ -71,8 +90,12 @@ fun CalendarPage(
 fun MonthView(
     yearMonth: YearMonth,
     selectedDate: LocalDate?,
-    onDayClick: (LocalDate) -> Unit
+    onDayClick: (LocalDate) -> Unit,
+    pastRestDays: List<LocalDate>,
+    currentRestDaysOfWeek: Map<DayOfWeek, Boolean>
 ) {
+    val today = LocalDate.now()
+
     Column(modifier = Modifier.padding(8.dp)) {
         // Display the month and year
         Text(
@@ -126,11 +149,21 @@ fun MonthView(
                                 .size(40.dp))
                         }
                         cellIndex - firstDayOfMonth < daysInMonth.size -> {
+                            val day = daysInMonth[cellIndex - firstDayOfMonth]
+                            val isFutureRestDay = day.isAfter(today) && currentRestDaysOfWeek[day.dayOfWeek] == true
+                            val isPastRestDay = day in pastRestDays
+                            val isToday = day == today
+                            val isTodayRestDay = isToday && currentRestDaysOfWeek[day.dayOfWeek] == true
+
+                            val isRestDay = isPastRestDay || isFutureRestDay || isTodayRestDay
+
                             // Display the valid days of the month
                             DayItem(
                                 day = daysInMonth[cellIndex - firstDayOfMonth],
-                                isSelected = selectedDate == daysInMonth[cellIndex - firstDayOfMonth],
-                                onClick = { onDayClick(daysInMonth[cellIndex - firstDayOfMonth]) }
+                                isSelected = selectedDate == day,
+                                isRestDay = isRestDay,
+                                isToday = isToday,
+                                onClick = { onDayClick(day) }
                             )
                         }
                         else -> {
@@ -149,7 +182,15 @@ fun MonthView(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DayItem(day: LocalDate, isSelected: Boolean, onClick: () -> Unit) {
+fun DayItem(day: LocalDate, isSelected: Boolean, isRestDay: Boolean, isToday: Boolean, onClick: () -> Unit) {
+    val backgroundColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isRestDay -> Color.Gray.copy(alpha = 0.3f)
+        else -> MaterialTheme.colorScheme.surface
+    }
+
+    val borderColor = if (isToday) Color.Yellow else Color.Transparent
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -157,8 +198,13 @@ fun DayItem(day: LocalDate, isSelected: Boolean, onClick: () -> Unit) {
             .size(40.dp)
             .clickable { onClick() }
             .background(
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp)
+                color = backgroundColor,
+                shape = CircleShape
+            )
+            .border(
+                width = if (isToday) 2.dp else 0.dp,
+                color = borderColor,
+                shape = CircleShape
             )
     ) {
         Text(
@@ -174,6 +220,7 @@ fun DayItem(day: LocalDate, isSelected: Boolean, onClick: () -> Unit) {
 fun DayPopup(
     day: LocalDate,
     onDismiss: () -> Unit,
+    isRestDay: Boolean,
     exerciseRepository: ExerciseRepository
 ) {
     val exercises = listOf("Push ups", "Sit ups", "Squats", "Pull ups")
@@ -209,7 +256,18 @@ fun DayPopup(
             }
         },
         title = {
-            Text(text = "${day.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy"))}")
+            Column {
+                Text(text = day.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")))
+
+                if (isRestDay) {
+                    Text(
+                        text = "Rest day",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
         },
         text = {
             // Display progress bars for each exercise that has non-zero reps
