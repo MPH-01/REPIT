@@ -1,9 +1,11 @@
 package com.example.repit
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -28,23 +30,32 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
 import com.example.repit.data.ExerciseDatabase
 import com.example.repit.data.ExerciseRepository
 import kotlinx.coroutines.flow.Flow
 
 import com.example.repit.ui.theme.REPITTheme
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private lateinit var exerciseRepository: ExerciseRepository
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Initialise the database and repository
         val database = ExerciseDatabase.getDatabase(applicationContext)
         exerciseRepository = ExerciseRepository(database.exerciseLogDao())
+
+        // Coroutine to initialize today's records when the app opens
+        val exercises = listOf("Push ups", "Sit ups", "Squats", "Pull ups") // List of exercises
+        lifecycleScope.launch {
+            exerciseRepository.initializeTodayRecords(exercises)
+        }
 
         setContent {
             REPITTheme {

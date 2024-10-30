@@ -36,6 +36,29 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
         dao.insertExerciseLog(newLog)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun initializeTodayRecords(exercises: List<String>) {
+        val today = LocalDate.now()
+        val isRestDayToday = isRestDay(today) // Determine if today is a rest day
+
+        exercises.forEach { exercise ->
+            // Check if there's already a record for today
+            val existingRecord = dao.getExerciseLog(exercise, today).firstOrNull()
+
+            // If no record exists, create a new one
+            if (existingRecord == null) {
+                val newLog = ExerciseLogEntity(
+                    exercise = exercise,
+                    date = today,
+                    reps = 0,
+                    goal = 25,
+                    isRestDay = isRestDayToday
+                )
+                dao.insertExerciseLog(newLog)
+            }
+        }
+    }
+
     fun getRepsForDate(exercise: String, date: LocalDate): Flow<Int> {
         return dao.getExerciseLog(exercise, date).map { it?.reps ?: 0 }
     }
