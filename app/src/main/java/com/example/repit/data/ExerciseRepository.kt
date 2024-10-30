@@ -135,10 +135,17 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun isRestDay(dayOfWeek: DayOfWeek): Boolean {
+    suspend fun isRestDay(date: LocalDate): Boolean {
         val today = LocalDate.now()
 
-        return dao.isRestDayOnDate(today.with(dayOfWeek)) == true
+        return if (date.isBefore(today)) {
+            // If the date is in the past, check the `exercise_logs` table
+            dao.isRestDayOnDate(date) == true // Return false if no record is found
+        } else {
+            // If the date is today or in the future, check the rest day settings
+            val dayOfWeek = date.dayOfWeek
+            dao.isRestDayForDayOfWeek(dayOfWeek) == true
+        }
     }
 
     suspend fun getRestDaySettings(): Map<DayOfWeek, Boolean> {
