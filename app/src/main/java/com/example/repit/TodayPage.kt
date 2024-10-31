@@ -3,10 +3,14 @@ package com.example.repit
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,9 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.style.TextAlign
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import androidx.compose.runtime.getValue
@@ -25,7 +27,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import com.example.repit.data.ExerciseRepository
 
@@ -179,33 +189,12 @@ fun TodayPage(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
-            Box(
+            CustomProgressCircle(
+                progress = currentReps / dailyGoal.toFloat(),
                 modifier = Modifier.size(300.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Background circle for the "empty" part of the progress
-                CircularProgressIndicator(
-                    progress = { 1f },
-                    modifier = Modifier.fillMaxSize(),
-                    strokeWidth = 36.dp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                )
-
-                // Foreground progress circle
-                CircularProgressIndicator(
-                    progress = { currentReps / dailyGoal.toFloat() },
-                    modifier = Modifier.fillMaxSize(),
-                    strokeWidth = 36.dp,
-                    color = if (currentReps >= dailyGoal) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                )
-
-                Text(
-                    text = "$currentReps",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
-                )
-            }
+                color = MaterialTheme.colorScheme.primary,
+                reps = currentReps
+            )
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -284,3 +273,86 @@ fun IncrementButton(label: String, increment: Int, currentReps: Int, onIncrement
         Text(label)
     }
 }
+
+@Composable
+fun CustomProgressCircle(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    strokeWidth: Float = 36f,
+    reps: Int
+) {
+    // Infinite transition for the glint animation
+    val infiniteTransition = rememberInfiniteTransition(label = "GlintTransition")
+
+    val fireAnimationAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ), label = ""
+    )
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // Fire ring effect background
+            drawArc(
+                brush = Brush.sweepGradient(
+                    colors = listOf(
+                        Color.Red, Color(0xFFFFA500), Color.Yellow, Color.Red
+                    ),
+                    center = Offset(size.width / 2, size.height / 2)
+                ),
+                startAngle = fireAnimationAngle,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = strokeWidth * 1.2f)
+            )
+
+            // Draw the main progress arc with a gradient to simulate a glowing effect
+            drawArc(
+                brush = Brush.sweepGradient(
+                    listOf(
+                        color,
+                        color.copy(alpha = 0.8f),
+                        color.copy(alpha = 0.6f),
+                        color // Repeat to keep the gradient consistent
+                    )
+                ),
+                startAngle = -90f,
+                sweepAngle = 360 * progress,
+                useCenter = false,
+                style = Stroke(width = strokeWidth)
+            )
+
+            // Draw the reps text with gradient in the center
+            val paint = Paint().apply {
+                isAntiAlias = true
+                textAlign = Paint.Align.CENTER
+                textSize = 150f // Adjust text size as needed
+                style = Paint.Style.FILL
+
+                // Set the gradient shader
+                shader = LinearGradient(
+                    0f, 0f, 0f, size.height,
+                    intArrayOf(Color.Magenta.toArgb(), Color.Cyan.toArgb()),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+            }
+
+            // Draw the text centered in the canvas
+            drawContext.canvas.nativeCanvas.drawText(
+                reps.toString(),
+                size.width / 2,
+                size.height / 2 - (paint.descent() + paint.ascent()) / 2, // Centers the text vertically
+                paint
+            )
+        }
+    }
+}
+
