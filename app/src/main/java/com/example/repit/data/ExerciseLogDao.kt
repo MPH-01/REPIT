@@ -38,8 +38,8 @@ interface ExerciseLogDao {
     @Query("UPDATE exercise_logs SET isRestDay = :isRestDay, reps = CASE WHEN :isRestDay THEN 0 ELSE reps END, goal = CASE WHEN :isRestDay THEN 0 ELSE 25 END WHERE date >= :startDate AND strftime('%w', date) = :dayOfWeek")
     suspend fun updateRestDayStatus(startDate: LocalDate, dayOfWeek: Int, isRestDay: Boolean)
 
-    @Query("SELECT isRestDay FROM exercise_logs WHERE date = :date LIMIT 1")
-    suspend fun isRestDayOnDate(date: LocalDate): Boolean?
+    @Query("SELECT MAX(isRestDay) FROM exercise_logs WHERE date = :date")
+    suspend fun isRestDayOnDate(date: LocalDate): Boolean
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateRestDaySetting(restDaySettings: RestDaySettings)
