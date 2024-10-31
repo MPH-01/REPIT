@@ -58,4 +58,7 @@ interface ExerciseLogDao {
 
     @Query("SELECT DISTINCT date FROM exercise_logs WHERE isRestDay = 1")
     suspend fun getDistinctPastRestDays(): List<LocalDate>
+
+    @Query("SELECT date, reps FROM exercise_logs WHERE exercise = :exercise AND date BETWEEN :startDate AND :endDate ORDER BY date")
+    suspend fun getRepsOverTime(exercise: String, startDate: LocalDate, endDate: LocalDate): List<DateReps>?
 }

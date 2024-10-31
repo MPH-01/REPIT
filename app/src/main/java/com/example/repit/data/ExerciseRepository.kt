@@ -71,6 +71,10 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
         return dao.getNonRestTotalReps(exercise, startDate, endDate) ?: 0
     }
 
+    suspend fun getRepsForPeriod(exercise: String, startDate: LocalDate, endDate: LocalDate): Int {
+        return dao.getTotalReps(exercise, startDate, endDate) ?: 0
+    }
+
     suspend fun getNumberOfNonRestDays(exercise: String, startDate: LocalDate, endDate: LocalDate): Int {
         return dao.getNoNonRestDays(exercise, startDate, endDate) ?: 0
     }
@@ -130,16 +134,26 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun calculateCurrentStreak(dates: List<LocalDate>): Int {
         var currentStreak = 0
-        var previousDate: LocalDate? = null
-
-        for (date in dates.sorted().reversed()) {
-            // Allow continuation if previous date was a rest day
-            val isPreviousRestDay = previousDate?.let { dao.isRestDayOnDate(it) } == true
-            if (previousDate == null || date == previousDate.minusDays(1) || isPreviousRestDay) {
+        var previousDate: LocalDate? = LocalDate.now()
+        // Iterate over the dates from most recent to oldest
+        for (date in dates.sortedDescending()) {
+            // Check if the date is consecutive to the previous date
+            val isConsecutive = previousDate == date || previousDate == date.plusDays(1)
+            // Skip rest days in the streak calculation
+            val isRestDay = dao.isRestDayOnDate(date)
+            // If it's a rest day, we skip it without breaking the streak
+            if (isRestDay) {
+                previousDate = date // Move to the next date in the sequence
+                continue
+            }
+            // If it's a non-rest day and consecutive, increment the streak
+            if (isConsecutive) {
                 currentStreak++
             } else {
+                // Break the streak if the day is not consecutive and not a rest day
                 break
             }
+            // Update the previousDate for the next iteration
             previousDate = date
         }
         return currentStreak
@@ -178,5 +192,14 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getPastRestDays(): List<LocalDate> {
         return dao.getDistinctPastRestDays()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun getRepsOverTime(exercise: String, startDate: LocalDate, endDate: LocalDate): List<Pair<LocalDate, Int>> {
+        // Fetch data from DAO as a list of DateReps
+        val dateRepsList = dao.getRepsOverTime(exercise, startDate, endDate) ?: emptyList()
+
+        // Convert the list of DateReps to a list of Pair<LocalDate, Int>
+        return dateRepsList.map { it.date to it.reps }
     }
 }

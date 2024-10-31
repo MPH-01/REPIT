@@ -71,7 +71,6 @@ fun CalendarPage(
                 text = "Calendar",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                //modifier = Modifier.padding(bottom = 16.dp)
             )
 
             // "Today" button
