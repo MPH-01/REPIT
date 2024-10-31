@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.repit.data.ExerciseRepository
@@ -51,27 +52,59 @@ fun CalendarPage(
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = 50)
     val currentYearMonth = YearMonth.now()
 
-    // Define a lazy column to scroll through months
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        state = listState
+        verticalArrangement = Arrangement.Top
     ) {
-        // Render one calendar per month
-        items(100) { index -> // Allow scrolling through many months
-            val currentMonth = currentYearMonth.plusMonths(index.toLong() - 50) // Centre on the current month
-            MonthView(
-                yearMonth = currentMonth,
-                selectedDate = selectedDate,
-                onDayClick = { day ->
-                    scope.launch {
-                        selectedDate = day
-                    }
-                },
-                pastRestDays = pastRestDays,
-                currentRestDaysOfWeek = currentRestDaysOfWeek
+        // Top Row with "Calendar" title on the left and "Today" button on the right
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Display the day of the week
+            Text(
+                text = "Calendar",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                //modifier = Modifier.padding(bottom = 16.dp)
             )
+
+            // "Today" button
+            Button(onClick = {
+                // Scroll to today's month when clicked
+                scope.launch {
+                    listState.animateScrollToItem(50)
+                }
+            }) {
+                Text("Today")
+            }
+        }
+
+        // Define a lazy column to scroll through months
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState
+        ) {
+            // Render one calendar per month
+            items(100) { index -> // Allow scrolling through many months
+                val currentMonth = currentYearMonth.plusMonths(index.toLong() - 50) // Centre on the current month
+                MonthView(
+                    yearMonth = currentMonth,
+                    selectedDate = selectedDate,
+                    onDayClick = { day ->
+                        scope.launch {
+                            selectedDate = day
+                        }
+                    },
+                    pastRestDays = pastRestDays,
+                    currentRestDaysOfWeek = currentRestDaysOfWeek
+                )
+            }
         }
     }
 
