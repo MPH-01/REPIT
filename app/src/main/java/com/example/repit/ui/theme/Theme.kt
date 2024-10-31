@@ -11,32 +11,41 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+// Dark Theme Colors
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = ElectricBlue,
+    secondary = LimeGreen,
+    tertiary = FieryOrange,
+    background = DarkGray,
+    surface = DarkGray,
+    onPrimary = PrimaryText,
+    onSecondary = PrimaryText,
+    onTertiary = PrimaryText,
+    onBackground = SecondaryText,
+    onSurface = SecondaryText,
+    error = AlertRed,
+    onError = PrimaryText
 )
 
+// Light Theme Colors
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    primary = ElectricBlue,
+    secondary = LimeGreen,
+    tertiary = FieryOrange,
+    background = OffWhite,
+    surface = LightGray,
+    onPrimary = DarkGray,
+    onSecondary = DarkGray,
+    onTertiary = DarkGray,
+    onBackground = DarkGray,
+    onSurface = DarkGray,
+    error = AlertRed,
+    onError = PrimaryText
 )
 
 @Composable
 fun REPITTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {

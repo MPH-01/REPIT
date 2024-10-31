@@ -55,7 +55,7 @@ fun CalendarPage(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp),
         state = listState
     ) {
         // Render one calendar per month
