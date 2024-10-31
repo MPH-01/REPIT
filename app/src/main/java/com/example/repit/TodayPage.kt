@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.text.font.FontWeight
 import com.example.repit.data.ExerciseRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,29 +42,30 @@ fun TodayPage(
     var dailyGoal by remember { mutableIntStateOf(25) }
     var dailyGoalText by remember { mutableStateOf(dailyGoal.toString()) }
     var currentReps by remember { mutableIntStateOf(0) }
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var currentDate = LocalDate.now()
     val dateFormatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy")
-    val formattedDate = selectedDate.format(dateFormatter)
+    val formattedDate = currentDate.format(dateFormatter)
+    val dayOfWeek = currentDate.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
     var isRestDay by remember { mutableStateOf(false) }
 
     // Coroutine scope to handle the asynchronous DataStore operations
     val scope = rememberCoroutineScope()
 
     // Fetch the rest day settings and check if the selected date is a rest day
-    LaunchedEffect(selectedDate) {
+    LaunchedEffect(currentDate) {
         isRestDay = false // Reset the rest day status for each date change
 
         scope.launch {
-            isRestDay = exerciseRepository.isRestDay(selectedDate)
-            Log.d("TodayPage", "Is rest day: $isRestDay for $selectedDate")
+            isRestDay = exerciseRepository.isRestDay(currentDate)
+            Log.d("TodayPage", "Is rest day: $isRestDay for $currentDate")
         }
     }
 
     // Fetch the stored daily goal when the exercise or date changes
-    LaunchedEffect(selectedExercise, selectedDate) {
+    LaunchedEffect(selectedExercise, currentDate) {
         // Launch goal collection in a separate coroutine
         launch {
-            exerciseRepository.getGoalForDate(selectedExercise, selectedDate).collect { goal ->
+            exerciseRepository.getGoalForDate(selectedExercise, currentDate).collect { goal ->
                 dailyGoal = goal
                 dailyGoalText = goal.toString()
             }
@@ -71,9 +73,9 @@ fun TodayPage(
 
         // Launch reps collection in a separate coroutine
         launch {
-            exerciseRepository.getRepsForDate(selectedExercise, selectedDate).collect { reps ->
+            exerciseRepository.getRepsForDate(selectedExercise, currentDate).collect { reps ->
                 currentReps = reps
-                Log.d("DataStore", "Stored reps for $selectedExercise on $selectedDate: $reps")
+                Log.d("DataStore", "Stored reps for $selectedExercise on $currentDate: $reps")
             }
         }
 
@@ -85,116 +87,125 @@ fun TodayPage(
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.CenterHorizontally
+        //horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Date Navigation with arrows
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { selectedDate = selectedDate.minusDays(1) }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous Day")
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = formattedDate, style = MaterialTheme.typography.titleLarge)
+        // Display the day of the week
+        Text(
+            text = dayOfWeek,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
-                // Display "Rest Day" if the selected date is a rest day
-                if (isRestDay) {
-                    Text(
-                        text = "Rest Day",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-            IconButton(onClick = { selectedDate = selectedDate.plusDays(1) }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next Day")
-            }
-        }
+        // Display the current date with "Rest Day" if applicable
+        Text(
+            text = if (isRestDay) "$formattedDate (Rest Day)" else formattedDate,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
-        ) {
-            OutlinedTextField(
-                value = selectedExercise,
-                onValueChange = { /* No need to change value here as selection is done via the dropdown */ },
-                readOnly = true,
-                label = { Text("Select Exercise") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                },
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth()
-            )
-
-            DropdownMenu(
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Drop-down menu for exercise selection
+            ExposedDropdownMenuBox(
                 expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.fillMaxWidth()
+                onExpandedChange = { expanded = !expanded }
             ) {
-                exercises.forEach { exercise ->
-                    DropdownMenuItem(
-                        text = { Text(exercise) },
-                        onClick = {
-                            onExerciseSelected(exercise)
-                            expanded = false
-                        }
+                OutlinedTextField(
+                    value = selectedExercise,
+                    onValueChange = { /* No need to change value here as selection is done via the dropdown */ },
+                    readOnly = true,
+                    label = { Text("Select Exercise", color = MaterialTheme.colorScheme.onSurface) },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .weight(1f),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
-                }
-            }
-        }
+                )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // TextField to input daily goal
-        OutlinedTextField(
-            value = dailyGoalText,
-            onValueChange = { newGoalText ->
-                dailyGoalText = newGoalText
-                val newGoal = newGoalText.toIntOrNull()
-                if (newGoal != null) {
-                    dailyGoal = newGoal
-                    scope.launch {
-                        exerciseRepository.setGoalForDate(selectedExercise, newGoal, selectedDate)
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    exercises.forEach { exercise ->
+                        DropdownMenuItem(
+                            text = { Text(exercise, color = MaterialTheme.colorScheme.onSurface) },
+                            onClick = {
+                                onExerciseSelected(exercise)
+                                expanded = false
+                            }
+                        )
                     }
                 }
-            },
-            label = { Text("Set Daily Goal") },
-            modifier = Modifier.fillMaxWidth(),
-            isError = dailyGoalText.toIntOrNull() == null && dailyGoalText.isNotEmpty()
-        )
+            }
+
+            // TextField to input daily goal
+            OutlinedTextField(
+                value = dailyGoalText,
+                onValueChange = { newGoalText ->
+                    dailyGoalText = newGoalText
+                    val newGoal = newGoalText.toIntOrNull()
+                    if (newGoal != null) {
+                        dailyGoal = newGoal
+                        scope.launch {
+                            exerciseRepository.setGoalForDate(selectedExercise, newGoal, currentDate)
+                        }
+                    }
+                },
+                label = { Text("Goal", color = MaterialTheme.colorScheme.onSurface) },
+                modifier = Modifier.weight(1f),
+                isError = dailyGoalText.toIntOrNull() == null && dailyGoalText.isNotEmpty(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        Box(
-            modifier = Modifier.size(300.dp),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
         ) {
-            // Red background circle (the "empty" part of the progress)
-            CircularProgressIndicator(
-                progress = { 1f },
-                modifier = Modifier.fillMaxSize(),
-                strokeWidth = 36.dp,
-                color = Color.Red
-            )
+            Box(
+                modifier = Modifier.size(300.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Background circle for the "empty" part of the progress
+                CircularProgressIndicator(
+                    progress = { 1f },
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 36.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                )
 
-            // Foreground progress circle
-            CircularProgressIndicator(
-                progress = { currentReps / dailyGoal.toFloat() },
-                modifier = Modifier.fillMaxSize(),
-                strokeWidth = 36.dp,
-                color = if (currentReps >= dailyGoal) Color.Green else MaterialTheme.colorScheme.primary
-            )
+                // Foreground progress circle
+                CircularProgressIndicator(
+                    progress = { currentReps / dailyGoal.toFloat() },
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 36.dp,
+                    color = if (currentReps >= dailyGoal) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                )
 
-            Text(
-                text = "$currentReps",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.Black,
-                textAlign = TextAlign.Center
-            )
+                Text(
+                    text = "$currentReps",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -207,26 +218,26 @@ fun TodayPage(
             IncrementButton("+1", 1, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
-                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, currentDate)
                 }
             }
             IncrementButton("+5", 5, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
                     Log.d("DataStore", "Running scope.launch")
-                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, currentDate)
                 }
             }
             IncrementButton("+10", 10, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
-                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, currentDate)
                 }
             }
             IncrementButton("+50", 50, currentReps) { newCount ->
                 currentReps = newCount
                 scope.launch {
-                    exerciseRepository.setRepsForDate(selectedExercise, newCount, selectedDate)
+                    exerciseRepository.setRepsForDate(selectedExercise, newCount, currentDate)
                 }
             }
         }
@@ -234,13 +245,24 @@ fun TodayPage(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Reset button
-        Button(onClick = {
-            currentReps = 0
-            scope.launch {
-                exerciseRepository.setRepsForDate(selectedExercise, 0, selectedDate)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Button(
+                onClick = {
+                    currentReps = 0
+                    scope.launch {
+                        exerciseRepository.setRepsForDate(selectedExercise, 0, currentDate)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                )
+            ) {
+                Text("Reset")
             }
-        }) {
-            Text("Reset")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -253,7 +275,11 @@ fun IncrementButton(label: String, increment: Int, currentReps: Int, onIncrement
     Log.d("DataStore", "IncrementButton running with arguments $label, $increment, $currentReps, $onIncrement")
     Button(
         onClick = { onIncrement(currentReps + increment) },
-        modifier = Modifier.size(80.dp)
+        modifier = Modifier.size(80.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary
+        )
     ) {
         Text(label)
     }

@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            REPITTheme {
+            REPITTheme(dynamicColor = false) {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     MainScreen(exerciseRepository)
                 }
