@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.example.repit.data.ExerciseRepository
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -257,7 +258,7 @@ suspend fun calculateStats(
     val daysWithReps = exerciseRepository.getNumberOfNonRestDays(exercise, startDate, endDate)
 
     // Calculate total days in range and subtract rest days
-    val totalDays = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1
+    val totalDays = ChronoUnit.DAYS.between(startDate, endDate) + 1
     val restDays = exerciseRepository.getRestDaysCount(exercise, startDate, endDate)
     val effectiveDays = totalDays - restDays
 
@@ -280,25 +281,40 @@ fun LineGraph(dataPoints: List<Pair<LocalDate, Int>>) {
     val maxReps = dataPoints.maxOf { it.second }
     val minDate = dataPoints.minOf { it.first }
     val maxDate = dataPoints.maxOf { it.first }
+    val totalDays = java.time.temporal.ChronoUnit.DAYS.between(minDate, maxDate) + 1
 
-    // Determine the label format based on the date range and point density
-    val dateInterval = when {
-        dataPoints.size > 30 -> dataPoints.size / 10 // Display fewer labels for large data sets
-        else -> 1
+    // Determine label intervals and format based on the date range
+    val dateFormatter: (LocalDate) -> String
+    val dateInterval: Int
+
+    when {
+        totalDays > 30 -> {
+            // Multiple months, show month initials at the start of each month
+            dateFormatter = { date -> date.month.name.take(3) }
+            dateInterval = dataPoints.size / 10 // Show roughly 10 month labels
+        }
+        totalDays > 7 -> {
+            // Single month, show day of the month (1, 2, 3, etc.)
+            dateFormatter = { date -> date.dayOfMonth.toString() }
+            dateInterval = 1 // Show all days
+        }
+        else -> {
+            // One week or less, show day names (Mon, Tue, etc.)
+            dateFormatter = { date -> date.dayOfWeek.name.take(3) }
+            dateInterval = 1 // Show all days
+        }
     }
-    val dateFormatter = when {
-        maxDate.year > minDate.year -> { date: LocalDate -> date.year.toString().takeLast(2) }
-        maxDate.month != minDate.month -> { date: LocalDate -> date.month.name.take(3) }
-        else -> { date: LocalDate -> date.dayOfMonth.toString() }
-    }
+
+    // Filter dates for labels based on interval
     val datesForLabels = dataPoints.mapIndexedNotNull { index, (date, _) ->
         if (index % dateInterval == 0) date else null
     }
 
-    Canvas(modifier = Modifier
-        .fillMaxWidth()
-        .height(250.dp)
-        .padding(16.dp)
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(250.dp)
+            .padding(16.dp)
     ) {
         // Set padding for the axes
         val xPadding = 40.dp.toPx()
@@ -378,4 +394,3 @@ fun LineGraph(dataPoints: List<Pair<LocalDate, Int>>) {
         }
     }
 }
-

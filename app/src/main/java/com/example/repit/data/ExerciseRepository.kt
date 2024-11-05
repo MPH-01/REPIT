@@ -39,23 +39,56 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun initializeTodayRecords(exercises: List<String>) {
         val today = LocalDate.now()
-        val isRestDayToday = isRestDay(today) // Determine if today is a rest day
 
-        exercises.forEach { exercise ->
-            // Check if there's already a record for today
-            val existingRecord = dao.getExerciseLog(exercise, today).firstOrNull()
+        // Determine the date of the most recent record in the database
+        val firstExerciseDate = exercises
+            .mapNotNull { dao.getFirstExerciseDate(it) }
+            .minOrNull() // Earliest date of records for all exercises
 
-            // If no record exists, create a new one
-            if (existingRecord == null) {
-                val newLog = ExerciseLogEntity(
-                    exercise = exercise,
-                    date = today,
-                    reps = 0,
-                    goal = 25,
-                    isRestDay = isRestDayToday
-                )
-                dao.insertExerciseLog(newLog)
+        // If there’s no prior record, just create today's records and return
+        if (firstExerciseDate == null) {
+            insertBlankRecordsForDate(exercises, today)
+            return
+        }
+
+        // Loop from the day after the last recorded date up to today
+        var currentDate = firstExerciseDate ?: today
+        while (currentDate <= today) {
+            val isRestDay = isRestDay(currentDate)
+
+            // For each exercise, insert a record if it’s missing
+            exercises.forEach { exercise ->
+                val existingRecord = dao.getExerciseLog(exercise, currentDate).firstOrNull()
+                if (existingRecord == null) {
+                    val newLog = ExerciseLogEntity(
+                        exercise = exercise,
+                        date = currentDate,
+                        reps = 0,
+                        goal = 25,
+                        isRestDay = isRestDay
+                    )
+                    dao.insertExerciseLog(newLog)
+                }
             }
+
+            // Move to the next day
+            currentDate = currentDate.plusDays(1)
+        }
+    }
+
+    // Helper function to create blank records for a single date
+    @RequiresApi(Build.VERSION_CODES.O)
+    private suspend fun insertBlankRecordsForDate(exercises: List<String>, date: LocalDate) {
+        val isRestDay = isRestDay(date)
+        exercises.forEach { exercise ->
+            val newLog = ExerciseLogEntity(
+                exercise = exercise,
+                date = date,
+                reps = 0,
+                goal = 25,
+                isRestDay = isRestDay
+            )
+            dao.insertExerciseLog(newLog)
         }
     }
 
@@ -142,7 +175,7 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
             // Skip rest days in the streak calculation
             val isRestDay = dao.isRestDayOnDate(date)
             // If it's a rest day, we skip it without breaking the streak
-            if (isRestDay) {
+            if (isRestDay == true) {
                 previousDate = date // Move to the next date in the sequence
                 continue
             }
@@ -177,11 +210,11 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
 
         return if (date.isBefore(today)) {
             // If the date is in the past, check the `exercise_logs` table
-            dao.isRestDayOnDate(date) == true // Return false if no record is found
+            dao.isRestDayOnDate(date) == true // Use `?: false` to handle null values
         } else {
             // If the date is today or in the future, check the rest day settings
             val dayOfWeek = date.dayOfWeek
-            dao.isRestDayForDayOfWeek(dayOfWeek) == true
+            dao.isRestDayForDayOfWeek(dayOfWeek) == true // Use `?: false` to handle null values
         }
     }
 

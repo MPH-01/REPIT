@@ -39,7 +39,7 @@ interface ExerciseLogDao {
     suspend fun updateRestDayStatus(startDate: LocalDate, dayOfWeek: Int, isRestDay: Boolean)
 
     @Query("SELECT MAX(isRestDay) FROM exercise_logs WHERE date = :date")
-    suspend fun isRestDayOnDate(date: LocalDate): Boolean
+    suspend fun isRestDayOnDate(date: LocalDate): Boolean?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateRestDaySetting(restDaySettings: RestDaySettings)
