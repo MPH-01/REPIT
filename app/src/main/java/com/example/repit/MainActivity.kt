@@ -23,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,14 +30,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.repit.data.ExerciseDatabase
 import com.example.repit.data.ExerciseRepository
-import kotlinx.coroutines.flow.Flow
-
 import com.example.repit.ui.theme.REPITTheme
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private lateinit var exerciseRepository: ExerciseRepository
@@ -58,7 +54,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            REPITTheme {
+            REPITTheme(dynamicColor = false) {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     MainScreen(exerciseRepository)
                 }
@@ -96,21 +92,45 @@ fun BottomNavigationBar(navController: NavHostController) {
         Screen.Settings
     )
 
-    NavigationBar {
+    // Colour variables for selected and unselected states
+    val selectedColor = MaterialTheme.colorScheme.primary
+    val unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+
+    val currentDestination by navController.currentBackStackEntryAsState()
+
+    NavigationBar (
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
         items.forEach { screen ->
+            val isSelected = currentDestination?.destination?.route == screen.route
+
             NavigationBarItem(
-                label = { Text(screen.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }) },
-                selected = false,
+                label = {
+                    Text(
+                        text = screen.route.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                        color = if (isSelected) selectedColor else unselectedColor
+                    )
+                },
+                selected = isSelected,
                 onClick = {
-                    navController.navigate(screen.route)
+                    navController.navigate(screen.route) {
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 icon = {
-                    when (screen.route) {
-                        Screen.Today.route -> Icon(Icons.Default.Check, contentDescription = "Today")
-                        Screen.Calendar.route -> Icon(Icons.Default.DateRange, contentDescription = "Calendar")
-                        Screen.Stats.route -> Icon(Icons.Default.Info, contentDescription = "Stats")
-                        Screen.Settings.route -> Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
+                    Icon(
+                        imageVector = when (screen.route) {
+                            Screen.Today.route -> Icons.Default.Check
+                            Screen.Calendar.route -> Icons.Default.DateRange
+                            Screen.Stats.route -> Icons.Default.Info
+                            Screen.Settings.route -> Icons.Default.Settings
+                            else -> Icons.Default.Check
+                        },
+                        contentDescription = screen.route,
+                        tint = if (isSelected) selectedColor else unselectedColor
+                    )
                 }
             )
         }

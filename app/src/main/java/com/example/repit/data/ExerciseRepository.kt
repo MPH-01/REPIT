@@ -39,23 +39,56 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun initializeTodayRecords(exercises: List<String>) {
         val today = LocalDate.now()
-        val isRestDayToday = isRestDay(today) // Determine if today is a rest day
 
-        exercises.forEach { exercise ->
-            // Check if there's already a record for today
-            val existingRecord = dao.getExerciseLog(exercise, today).firstOrNull()
+        // Determine the date of the most recent record in the database
+        val firstExerciseDate = exercises
+            .mapNotNull { dao.getFirstExerciseDate(it) }
+            .minOrNull() // Earliest date of records for all exercises
 
-            // If no record exists, create a new one
-            if (existingRecord == null) {
-                val newLog = ExerciseLogEntity(
-                    exercise = exercise,
-                    date = today,
-                    reps = 0,
-                    goal = 25,
-                    isRestDay = isRestDayToday
-                )
-                dao.insertExerciseLog(newLog)
+        // If there’s no prior record, just create today's records and return
+        if (firstExerciseDate == null) {
+            insertBlankRecordsForDate(exercises, today)
+            return
+        }
+
+        // Loop from the day after the last recorded date up to today
+        var currentDate = firstExerciseDate ?: today
+        while (currentDate <= today) {
+            val isRestDay = isRestDay(currentDate)
+
+            // For each exercise, insert a record if it’s missing
+            exercises.forEach { exercise ->
+                val existingRecord = dao.getExerciseLog(exercise, currentDate).firstOrNull()
+                if (existingRecord == null) {
+                    val newLog = ExerciseLogEntity(
+                        exercise = exercise,
+                        date = currentDate,
+                        reps = 0,
+                        goal = 25,
+                        isRestDay = isRestDay
+                    )
+                    dao.insertExerciseLog(newLog)
+                }
             }
+
+            // Move to the next day
+            currentDate = currentDate.plusDays(1)
+        }
+    }
+
+    // Helper function to create blank records for a single date
+    @RequiresApi(Build.VERSION_CODES.O)
+    private suspend fun insertBlankRecordsForDate(exercises: List<String>, date: LocalDate) {
+        val isRestDay = isRestDay(date)
+        exercises.forEach { exercise ->
+            val newLog = ExerciseLogEntity(
+                exercise = exercise,
+                date = date,
+                reps = 0,
+                goal = 25,
+                isRestDay = isRestDay
+            )
+            dao.insertExerciseLog(newLog)
         }
     }
 
@@ -69,6 +102,10 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
 
     suspend fun getNonRestRepsForPeriod(exercise: String, startDate: LocalDate, endDate: LocalDate): Int {
         return dao.getNonRestTotalReps(exercise, startDate, endDate) ?: 0
+    }
+
+    suspend fun getRepsForPeriod(exercise: String, startDate: LocalDate, endDate: LocalDate): Int {
+        return dao.getTotalReps(exercise, startDate, endDate) ?: 0
     }
 
     suspend fun getNumberOfNonRestDays(exercise: String, startDate: LocalDate, endDate: LocalDate): Int {
@@ -130,16 +167,26 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     @RequiresApi(Build.VERSION_CODES.O)
     private suspend fun calculateCurrentStreak(dates: List<LocalDate>): Int {
         var currentStreak = 0
-        var previousDate: LocalDate? = null
-
-        for (date in dates.sorted().reversed()) {
-            // Allow continuation if previous date was a rest day
-            val isPreviousRestDay = previousDate?.let { dao.isRestDayOnDate(it) } == true
-            if (previousDate == null || date == previousDate.minusDays(1) || isPreviousRestDay) {
+        var previousDate: LocalDate? = LocalDate.now()
+        // Iterate over the dates from most recent to oldest
+        for (date in dates.sortedDescending()) {
+            // Check if the date is consecutive to the previous date
+            val isConsecutive = previousDate == date || previousDate == date.plusDays(1)
+            // Skip rest days in the streak calculation
+            val isRestDay = dao.isRestDayOnDate(date)
+            // If it's a rest day, we skip it without breaking the streak
+            if (isRestDay == true) {
+                previousDate = date // Move to the next date in the sequence
+                continue
+            }
+            // If it's a non-rest day and consecutive, increment the streak
+            if (isConsecutive) {
                 currentStreak++
             } else {
+                // Break the streak if the day is not consecutive and not a rest day
                 break
             }
+            // Update the previousDate for the next iteration
             previousDate = date
         }
         return currentStreak
@@ -163,11 +210,11 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
 
         return if (date.isBefore(today)) {
             // If the date is in the past, check the `exercise_logs` table
-            dao.isRestDayOnDate(date) == true // Return false if no record is found
+            dao.isRestDayOnDate(date) == true // Use `?: false` to handle null values
         } else {
             // If the date is today or in the future, check the rest day settings
             val dayOfWeek = date.dayOfWeek
-            dao.isRestDayForDayOfWeek(dayOfWeek) == true
+            dao.isRestDayForDayOfWeek(dayOfWeek) == true // Use `?: false` to handle null values
         }
     }
 
@@ -178,5 +225,14 @@ class ExerciseRepository(private val dao: ExerciseLogDao) {
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getPastRestDays(): List<LocalDate> {
         return dao.getDistinctPastRestDays()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun getRepsOverTime(exercise: String, startDate: LocalDate, endDate: LocalDate): List<Pair<LocalDate, Int>> {
+        // Fetch data from DAO as a list of DateReps
+        val dateRepsList = dao.getRepsOverTime(exercise, startDate, endDate) ?: emptyList()
+
+        // Convert the list of DateReps to a list of Pair<LocalDate, Int>
+        return dateRepsList.map { it.date to it.reps }
     }
 }
